@@ -43,9 +43,9 @@ def shouldReset(lineList):
             return True
     return False
 
-def main(inFile, outFile):
+def main(inFilePath, outFilePath):
     AllDataList = []
-    with open("./raw_data.csv") as f:
+    with open(inFilePath) as f:
         lines = f.readlines()
 
     metaDict = dict()
@@ -79,8 +79,10 @@ def main(inFile, outFile):
         jsonData = json.dumps(dataDict)
         AllDataList.append(jsonData)
 
-    with open(outFile, "a") as outFile:
+    with open(outFilePath, "w") as outFile:
         outFile.write("[\n")
+
+    with open(outFilePath, "a") as outFile:
         for dataPoint in AllDataList[:-1]:
             outFile.write(dataPoint + ",\n")
         outFile.write(AllDataList[-1] + "\n]")
@@ -90,3 +92,4 @@ def main(inFile, outFile):
 
 if __name__ == "__main__":
     main("./raw_data.csv", "./clean_data.dat")
+    print("done")
