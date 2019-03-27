@@ -4,7 +4,7 @@ metadata_config = ["Naziv postaje", "Šifra postaje", "Razdoblje", "Medij", "Dat
 feature_config = ["Fizikalno kemijski pokazatelji", "Režim kisika", "Hranjive tvari", "Metali", "Organski spojevi", "Ioni"]
 
 def preprocess(line):
-    lineList = ["" if item == "#N/A" else item for item in line.strip().split(";")]
+    lineList = ["" if item == "#N/A" else item.strip() for item in line.strip().split(";")]
     return lineList
 
 def shouldDicard(lineList):
@@ -21,7 +21,7 @@ def isMetaData(lineList, config = metadata_config):
         for metaItem in config:
             if metaItem in item:
                 key, value = item.split(":")
-                metaDict[key] = value
+                metaDict[key.strip()] = value.strip()
     return len(metaDict) > 0, metaDict
 
 def isFeature(lineList, config = feature_config):
