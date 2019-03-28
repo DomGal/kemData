@@ -1,4 +1,9 @@
 import json
+import time
+from tqdm import tqdm
+import pandas as pd
+import numpy as np
+
 
 metadata_config = ["Naziv postaje", "Šifra postaje", "Razdoblje", "Medij", "Datum ispisa", "Mikrolokacija"]
 feature_config = ["Fizikalno kemijski pokazatelji", "Režim kisika", "Hranjive tvari", "Metali", "Organski spojevi", "Ioni"]
@@ -43,6 +48,14 @@ def shouldReset(lineList):
             return True
     return False
 
+def floatify(value):
+    try:
+        floatVal = float(value)
+        return floatVal
+    except:
+        return np.nan
+
+
 def main(inFilePath, outFilePath):
     AllDataList = []
     with open(inFilePath) as f:
@@ -79,17 +92,56 @@ def main(inFilePath, outFilePath):
         jsonData = json.dumps(dataDict)
         AllDataList.append(jsonData)
 
-    with open(outFilePath, "w") as outFile:
+    with open("./temp_data.dat", "w") as outFile:
         outFile.write("[\n")
 
-    with open(outFilePath, "a") as outFile:
+    with open("./temp_data.dat", "a") as outFile:
         for dataPoint in AllDataList[:-1]:
             outFile.write(dataPoint + ",\n")
         outFile.write(AllDataList[-1] + "\n]")
+
+    df = pd.read_json("./temp_data.dat")
+
+    df = df.loc[df.loc[:, "Kategorija pokazatelja"].notna()]
+    df.loc[:, "SR.VR."] = df.loc[:, "SR.VR."].apply(lambda x: "".join(x.split(",")) if len(x.split()) <=2 else np.nan).apply(lambda x: np.nan if x == "" else x).apply(floatify)
+
+    df = df.loc[df.loc[:, "SR.VR."].notna()]
+
+    df.loc[:, "br.an."] = df.loc[:, "br.an."].astype(float)
+    df.loc[:, "ukupno"] = df.loc[:, "br.an."] * df.loc[:, "SR.VR."]
+
+
+    metaColumns = ["Datum ispisa", "Naziv postaje", "Medij", "Mikrolokacija", "Razdoblje", "Vodi tip", "godina", "Šifra postaje"]
+
+    auxColumns = ["10%", "50%", "90%", "Kategorija pokazatelja", "MAX", "MIN", "Pokazatelj", "SR.VR.", "ST.DEV.", "ukupno", "br.an."]
+
+    bioColumns = ["- EP [%]", "- EP-Taxa", "- EPT [%] (abundance classes)", "- EPT-Taxa", "- EPT-Taxa [%]", "- Ephemeroptera", "- Ephemeroptera [%]", "- Plecoptera", "- Plecoptera [%]", "- Trichoptera", "- Trichoptera [%]", "Abundance [ind/m2]", "BMWP Score", "Diversity (Margalef Index)", "Diversity (Shannon-Wiener-Index)", "Diversity (Simpson-Index)", "Evenness", "Number of Families", "Number of Genera", "Number of Taxa"]
+
+    chemFrame = df.loc[:, metaColumns + auxColumns]
+
+    bioFrameList = []
+    bioFrame = df.loc[:, bioColumns + metaColumns]
+    for bioValue in tqdm(bioColumns):
+        tmpFrame = bioFrame.loc[:, [bioValue] + metaColumns].copy()
+        tmpFrame.loc[:, "Pokazatelj"] = bioValue
+        tmpFrame.loc[:, "br.an."] = 1
+        tmpFrame.loc[:, "Kategorija pokazatelja"] = "Biološki pokazatelji"
+        
+        tmpFrame.loc[:, bioValue] = tmpFrame.loc[:, bioValue].apply(lambda x: "".join(x.split(",")) if len(x.split()) <=2 else np.nan).apply(lambda x: np.nan if x == "" else x).apply(floatify)
+
+        tmpFrame.columns = ["ukupno"] + list(tmpFrame.columns[1:])
+        
+        bioFrameList.append(tmpFrame.copy())
+
+    bioMerged = pd.concat(bioFrameList, ignore_index=True, sort = False)
+
+    mergedFrame = pd.concat([chemFrame, bioMerged], ignore_index=True, sort = False)
+
+    mergedFrame.to_csv(outFilePath, sep = ";", index = False)
     
     return None
 
 
 if __name__ == "__main__":
-    main("./raw_data.csv", "./clean_data.dat")
+    main("./raw_data.csv", "./clean_data.csv")
     print("done")
